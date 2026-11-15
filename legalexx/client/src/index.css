@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body { @apply bg-ink-50 text-ink-900 antialiased; }
+  [dir='rtl'] body { font-family: 'Cairo', 'Inter', sans-serif; }
+}
+
+@layer components {
+  .card { @apply rounded-2xl bg-white border border-ink-100 shadow-soft; }
+  .input { @apply w-full rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-gold-500 focus:ring-4 focus:ring-gold-100; }
+  .label { @apply mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-600; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-primary { @apply btn bg-ink-900 text-white hover:bg-ink-700 shadow-soft; }
+  .btn-gold { @apply btn bg-gold-500 text-white hover:bg-gold-600 shadow-soft; }
+  .btn-ghost { @apply btn border border-ink-200 bg-white text-ink-800 hover:bg-ink-50; }
+  .chip { @apply cursor-pointer rounded-full border border-ink-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-ink-700 transition hover:border-gold-400; }
+  .chip-on { @apply border-gold-500 bg-gold-50 text-gold-600; }
+}
