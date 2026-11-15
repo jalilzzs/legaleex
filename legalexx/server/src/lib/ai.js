@@ -1,7 +1,3 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
-let client;
-const getClient = () => (client ??= new GoogleGenerativeAI(process.env.GEMINI_API_KEY));
 
 export const hasAiKey = () => Boolean(process.env.GEMINI_API_KEY);
 
@@ -81,23 +77,31 @@ ${sourceBlock}
 
 Write the exposé and return ONLY the valid JSON object. No markdown formatting blocks if possible, or just standard JSON.`;
 
-  try {
-    const genAI = getClient();
-    const model = genAI.getGenerativeModel({ 
-      model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
-      systemInstruction: systemPrompt
-    });
-
-    const result = await model.generateContent(userPrompt);
-    const responseText = result.response.text();
-    
-    // استخراج الـ JSON بدقة من رد الجيميني
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('The AI did not return a valid JSON structure.');
-    
-    return JSON.parse(jsonMatch[0]);
-  } catch (e) {
-    console.error('Gemini Generation Error:', e);
-    throw new Error('Failed to generate exposé using AI.');
+  // Direct REST call (no SDK). Set GEMINI_MODEL in the host's variables to switch models.
+  const model = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': process.env.GEMINI_API_KEY },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+      generationConfig: { responseMimeType: 'application/json', temperature: 0.4, maxOutputTokens: 8000 },
+    }),
+  });
+  if (!res.ok) {
+    const body = (await res.text()).slice(0, 400);
+    console.error(`Gemini error ${res.status} (model ${model}): ${body}`);
+    throw new Error(`Gemini error ${res.status}`);
   }
+  const data = await res.json();
+  const text = (data.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('');
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) {
+    console.error('Gemini returned no JSON:', text.slice(0, 300));
+    throw new Error('The AI did not return valid JSON.');
+  }
+  const out = JSON.parse(match[0]);
+  if (!Array.isArray(out.sections)) throw new Error('The AI response had no sections.');
+  out.verifyNotes ??= [];
+  return out;
 }
