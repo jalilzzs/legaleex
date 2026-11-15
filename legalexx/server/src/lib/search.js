@@ -1,6 +1,29 @@
 import { classify, TRUST_RANK } from './classifier.js';
 
-const hasArabic = (s) => /[؀-ۿ]/.test(s);
+async function callLangSearch(q) {
+  const res = await fetch('https://api.langsearch.com/v1/web-search', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.LANGSEARCH_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query: q,
+      count: 20,
+      contents: { text: true },
+      freshness: 'noLimit',
+    }),
+    signal: AbortSignal.timeout(30000),
+  });
+  if (!res.ok) throw new Error(`LangSearch error ${res.status}`);
+  const data = await res.json();
+  const pages = data.data?.webPages?.value || [];
+  return pages.map((r) => ({
+    title: r.name,
+    url: r.url,
+    snippet: r.text || r.snippet || '',
+  }));
+}
 
 async function callSerper(q) {
   const res = await fetch('https://google.serper.dev/search', {
@@ -22,12 +45,18 @@ async function callBrave(q) {
   return (data.web?.results || []).map((r) => ({ title: r.title, url: r.url, snippet: (r.description || '').replace(/<[^>]+>/g, '') }));
 }
 
+const hasArabic = (s) => /[؀-ۿ]/.test(s);
+
 function provider() {
   const pref = (process.env.SEARCH_PROVIDER || '').toLowerCase();
+  const hasLang = Boolean(process.env.LANGSEARCH_API_KEY);
   const hasSerper = Boolean(process.env.SERPER_API_KEY);
   const hasBrave = Boolean(process.env.BRAVE_API_KEY);
+
+  if (pref === 'langsearch' && hasLang) return callLangSearch;
   if (pref === 'brave' && hasBrave) return callBrave;
   if (pref === 'serper' && hasSerper) return callSerper;
+  if (hasLang) return callLangSearch;
   if (hasSerper) return callSerper;
   if (hasBrave) return callBrave;
   return null;
