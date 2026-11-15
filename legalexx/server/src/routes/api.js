@@ -11,7 +11,11 @@ const LANGS = ['ar', 'fr', 'en'];
 const str = (v, max) => String(v ?? '').trim().slice(0, max);
 const clamp = (n, lo, hi, d) => (Number.isFinite(+n) ? Math.min(hi, Math.max(lo, Math.round(+n))) : d);
 
-router.get('/health', (_req, res) => res.json({ ok: true, ai: hasAiKey(), search: Boolean(process.env.SERPER_API_KEY || process.env.BRAVE_API_KEY) }));
+router.get('/health', (_req, res) => res.json({ 
+  ok: true, 
+  ai: hasAiKey(), 
+  search: Boolean(process.env.LANGSEARCH_API_KEY || process.env.SERPER_API_KEY || process.env.BRAVE_API_KEY) 
+}));
 
 // ---- Open-web search with smart classification ----
 router.get('/search', async (req, res) => {
