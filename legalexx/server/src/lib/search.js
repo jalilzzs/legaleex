@@ -62,9 +62,9 @@ export async function searchWeb(query, options = {}) {
     finalQuery = `${query} (filetype:pdf OR كتاب OR مرجع OR مطبوعة)`;
   }
 
-  // تعديل ذكي لفلترة الجزائر: لا نجبرها بصيغة site الصارمة التي تقتل النتائج، بل نضيف الكلمات المفتاحية والدولة بلطف
+  // وضع الجزائر: إضافة كلمات مفتاحية محلية تضمن ظهور المقالات الجزائرية بدون تقييد صارم يفشل البحث
   if (options.country === 'dz') {
-    finalQuery = `${finalQuery} الجزائر (site:.dz OR asjp.cerist.dz OR joradp.dz OR university)`;
+    finalQuery = `${query} الجزائر (جامعة OR قانون OR مجلة OR مقال)`;
   } else if (options.country === 'fr') {
     finalQuery += ` site:.fr`;
   }
