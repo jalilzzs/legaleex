@@ -86,12 +86,26 @@ function enrich(items) {
   return out.map((r, i) => [r, i]).sort((a, b) => TRUST_RANK[a[0].trust] - TRUST_RANK[b[0].trust] || a[1] - b[1]).map(([r]) => r);
 }
 
-/** Open-web search + on-the-fly classification. */
-export async function searchWeb(query) {
+/** Open-web search + on-the-fly classification. Supports options for books-only & country filtering */
+export async function searchWeb(query, options = {}) {
+  let finalQuery = query;
+
+  // إذا تم اختيار وضع الكتب والمراجع فقط، نقوم بتوجيه الاستعلام للتركيز على ملفات الـ PDF والمصادر الأكاديمية
+  if (options.booksOnly) {
+    finalQuery = `${query} (filetype:pdf OR كتاب OR مرجع OR مطبوعة جامعية)`;
+  }
+
+  // فلترة الدولة إذا تم تحديدها
+  if (options.country === 'dz') {
+    finalQuery += ` site:.dz`;
+  } else if (options.country === 'fr') {
+    finalQuery += ` site:.fr`;
+  }
+
   const fn = provider();
   if (!fn) return { results: enrich(MOCK), mock: true, providerError: null };
   try {
-    return { results: enrich(await fn(query)), mock: false, providerError: null };
+    return { results: enrich(await fn(finalQuery)), mock: false, providerError: null };
   } catch (e) {
     return { results: [], mock: false, providerError: e.message || 'Search failed' };
   }
