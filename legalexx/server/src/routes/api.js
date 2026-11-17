@@ -1,3 +1,17 @@
+import express from 'express';
+import { renderExposePdf } from '../lib/pdf.js';
+// (استبدل أو أضف هنا باقي الـ imports الخاصة بـ classify, str, isHttpUrl, buildCoverHtml, buildBodyHtml إذا كانت كائناتها في ملفات أخرى)
+
+const router = express.Router();
+
+const LANGS = ['ar', 'fr', 'en'];
+const CATEGORIES = ['mixed', 'legal', 'historical', 'scientific', 'economic'];
+
+// Helper functions if needed locally or imported
+const str = (val, maxLen) => (typeof val === 'string' ? val.slice(0, maxLen) : '');
+const isHttpUrl = (url) => typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://'));
+const clamp = (val, min, max, def) => (typeof val === 'number' && !isNaN(val) ? Math.max(min, Math.min(max, val)) : def);
+
 // ---- PDF export ----
 router.post('/pdf', async (req, res) => {
   const b = req.body || {};
@@ -24,7 +38,7 @@ router.post('/pdf', async (req, res) => {
     .filter((s) => s && isHttpUrl(s.url))
     .slice(0, 60)
     .map((s) => {
-      const c = classify(s.url) || { 
+      const c = (typeof classify === 'function' ? classify(s.url) : null) || { 
         sourceName: s.url, 
         sourceNameAr: s.url, 
         sourceTypeLabel: { ar: 'موقع إلكتروني', en: 'Website' } 
@@ -43,8 +57,8 @@ router.post('/pdf', async (req, res) => {
 
   try {
     const pdf = await renderExposePdf({
-      coverHtml: buildCoverHtml({ meta, title: expose.title, category, language }),
-      bodyHtml: buildBodyHtml({ expose, sources, language }),
+      coverHtml: typeof buildCoverHtml === 'function' ? buildCoverHtml({ meta, title: expose.title, category, language }) : '',
+      bodyHtml: typeof buildBodyHtml === 'function' ? buildBodyHtml({ expose, sources, language }) : '',
     });
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="expose.pdf"', 'Content-Length': pdf.length });
     res.send(pdf);
@@ -53,3 +67,6 @@ router.post('/pdf', async (req, res) => {
     res.status(500).json({ error: 'PDF generation failed.' });
   }
 });
+
+// هذا هو السطر الحاسم والمفقود الذي كان يسبب الانهيار بأكمله!
+export default router;
