@@ -112,21 +112,21 @@ export default function ExposePage({ t, lang, basket, onToggle }) {
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="space-y-5">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-extrabold">{t.review}</h2>
-            <button onClick={() => setPhase('form')} className="btn-ghost !py-1.5 text-xs">← {t.back}</button>
+            <h2 className="text-xl font-extrabold">{t.review || 'مراجعة العرض'}</h2>
+            <button onClick={() => setPhase('form')} className="btn-ghost !py-1.5 text-xs">← {t.back || 'رجوع'}</button>
           </div>
           {demo.ai && <p className="rounded-xl bg-gold-50 p-4 text-sm text-gold-600">{t.demoAi}</p>}
           {demo.search && <p className="rounded-xl bg-gold-50 p-4 text-sm text-gold-600">{t.demoSearch}</p>}
 
           <div className="card space-y-4 p-6">
-            <Field label={t.heading}><input className="input !text-lg !font-bold" value={draft.title} onChange={(e) => upd({ title: e.target.value })} /></Field>
-            <Field label={t.intro}><textarea rows={6} className="input" value={draft.introduction} onChange={(e) => upd({ introduction: e.target.value })} /></Field>
+            <Field label={t.heading || 'العنوان'}><input className="input !text-lg !font-bold" value={draft.title} onChange={(e) => upd({ title: e.target.value })} /></Field>
+            <Field label={t.intro || 'المقدمة'}><textarea rows={6} className="input" value={draft.introduction} onChange={(e) => upd({ introduction: e.target.value })} /></Field>
           </div>
 
           {draft.sections.map((s, i) => (
             <div key={i} className="card space-y-4 p-6">
-              <Field label={`${t.heading} ${i + 1}`}><input className="input !font-bold" value={s.heading} onChange={(e) => updSection(i, { heading: e.target.value })} /></Field>
-              <Field label={t.sectionIntro}><textarea rows={8} className="input" value={s.text} onChange={(e) => updSection(i, { text: e.target.value })} /></Field>
+              <Field label={`${t.heading || 'المبحث'} ${i + 1}`}><input className="input !font-bold" value={s.heading} onChange={(e) => updSection(i, { heading: e.target.value })} /></Field>
+              <Field label={t.sectionIntro || 'محتوى المبحث'}><textarea rows={8} className="input" value={s.text} onChange={(e) => updSection(i, { text: e.target.value })} /></Field>
               {s.subsections.map((x, j) => (
                 <div key={j} className="space-y-3 rounded-xl bg-ink-50 p-4">
                   <input className="input !font-semibold" value={x.heading} onChange={(e) => updSub(i, j, { heading: e.target.value })} />
@@ -137,25 +137,25 @@ export default function ExposePage({ t, lang, basket, onToggle }) {
           ))}
 
           <div className="card p-6">
-            <Field label={t.conclusion}><textarea rows={5} className="input" value={draft.conclusion} onChange={(e) => upd({ conclusion: e.target.value })} /></Field>
+            <Field label={t.conclusion || 'الخاتمة'}><textarea rows={5} className="input" value={draft.conclusion} onChange={(e) => upd({ conclusion: e.target.value })} /></Field>
           </div>
         </div>
 
         <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">
           <button onClick={exportPdf} disabled={exporting} className="btn-gold w-full !py-3.5 text-base">
-            {exporting ? t.downloading : `⬇ ${t.download}`}
+            {exporting ? (t.downloading || 'جاري التحميل...') : `⬇ ${t.download || 'تحميل PDF'}`}
           </button>
           {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
           {notes.length > 0 && (
             <div className="rounded-2xl border border-gold-300 bg-gold-50 p-4">
-              <h3 className="mb-2 text-sm font-bold text-gold-600">⚠ {t.verify}</h3>
+              <h3 className="mb-2 text-sm font-bold text-gold-600">⚠ {t.verify || 'ملاحظات التحقق'}</h3>
               <ul className="list-disc space-y-1.5 ps-5 text-xs leading-relaxed text-ink-800">{notes.map((n, i) => <li key={i}>{n}</li>)}</ul>
             </div>
           )}
 
           <div className="card p-4">
-            <h3 className="mb-3 text-sm font-bold">{t.sourcesUsed}</h3>
+            <h3 className="mb-3 text-sm font-bold">{t.sourcesUsed || 'المصادر المستخدمة'}</h3>
             <ul className="space-y-3">
               {sources.map((s) => (
                 <li key={s.n} className="flex gap-2.5 text-xs">
@@ -163,7 +163,7 @@ export default function ExposePage({ t, lang, basket, onToggle }) {
                     onChange={() => setKeep((k) => { const n = new Set(k); n.has(s.n) ? n.delete(s.n) : n.add(s.n); return n; })} />
                   <div className="min-w-0">
                     <div className="font-semibold leading-snug">[{s.n}] {s.title}</div>
-                    <div className="text-ink-400">{s.sourceName} · {cited.includes(s.n) ? t.cited : t.notCited}</div>
+                    <div className="text-ink-400">{s.sourceName} · {cited.includes(s.n) ? (t.cited || 'مستشهد به') : (t.notCited || 'غير مستشهد به')}</div>
                     <a href={s.url} target="_blank" rel="noopener noreferrer" dir="ltr" className="block truncate text-gold-600 hover:underline">{s.url}</a>
                   </div>
                 </li>
@@ -182,7 +182,7 @@ export default function ExposePage({ t, lang, basket, onToggle }) {
 
       <div className="card space-y-5 p-6">
         <div>
-          <span className="label">{t.field}</span>
+          <span className="label">{t.field || 'التخصص القانوني'}</span>
           <div className="flex flex-wrap gap-2">
             {CATEGORY_IDS.map((c) => (
               <button key={c} type="button" onClick={() => setForm((f) => ({ ...f, category: c }))} className={`chip ${form.category === c ? 'chip-on' : ''}`}>{t.cat[c]}</button>
@@ -190,32 +190,32 @@ export default function ExposePage({ t, lang, basket, onToggle }) {
           </div>
         </div>
 
-        <Field label={t.desc}>
-          <textarea required minLength={10} rows={5} className="input" placeholder={t.descPh} value={form.description} onChange={set('description')} />
+        <Field label={t.desc || 'وصف العرض / الموضوع'}>
+          <textarea required minLength={10} rows={5} className="input" placeholder={t.descPh || 'اكتب وصفاً مفصلاً للموضوع أو السؤال القانوني...'} value={form.description} onChange={set('description')} />
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label={t.sections}><input type="number" min={1} max={8} className="input" value={form.sectionCount} onChange={set('sectionCount')} /></Field>
-          <Field label={t.pages}><input type="number" min={2} max={30} className="input" value={form.pages} onChange={set('pages')} /></Field>
-          <Field label={t.language}>
+          <Field label={t.sections || 'عدد المباحث'}><input type="number" min={1} max={8} className="input" value={form.sectionCount} onChange={set('sectionCount')} /></Field>
+          <Field label={t.pages || 'عدد الصفحات المستهدف'}><input type="number" min={2} max={30} className="input" value={form.pages} onChange={set('pages')} /></Field>
+          <Field label={t.language || 'لغة العرض'}>
             <select className="input" value={form.language} onChange={set('language')}>
               <option value="ar">العربية</option><option value="fr">Français</option><option value="en">English</option>
             </select>
           </Field>
         </div>
 
-        <Field label={t.subheadings}>
-          <textarea rows={3} className="input" placeholder={t.subheadingsPh} value={form.subheadings} onChange={set('subheadings')} />
+        <Field label={t.subheadings || 'العناوين الفرعية (اختياري)'}>
+          <textarea rows={3} className="input" placeholder={t.subheadingsPh || 'كل عنوان في سطر...'} value={form.subheadings} onChange={set('subheadings')} />
         </Field>
 
         {basket.length > 0 && (
-          <div className="rounded-xl bg-gold-50 p-4">
-            <div className="mb-2 text-xs font-bold text-gold-600">{t.pinned} ({basket.length})</div>
+          <div className="rounded-xl bg-gold-50 p-4 border border-gold-200">
+            <div className="mb-2 text-xs font-bold text-gold-600">📚 المصادر المضافة المعتمدة (Pinned Sources): ({basket.length})</div>
             <ul className="space-y-1.5 text-xs">
               {basket.map((s) => (
-                <li key={s.url} className="flex items-center justify-between gap-3">
-                  <span className="truncate">{s.title}</span>
-                  <button type="button" onClick={() => onToggle(s)} className="shrink-0 text-red-600 hover:underline">✕</button>
+                <li key={s.url} className="flex items-center justify-between gap-3 bg-white/60 p-2 rounded-lg">
+                  <span className="truncate font-medium">{s.title}</span>
+                  <button type="button" onClick={() => onToggle(s)} className="shrink-0 text-red-600 hover:underline font-bold px-2">✕</button>
                 </li>
               ))}
             </ul>
@@ -224,18 +224,18 @@ export default function ExposePage({ t, lang, basket, onToggle }) {
       </div>
 
       <div className="card space-y-4 p-6">
-        <h3 className="text-sm font-bold">{t.coverData}</h3>
-        <Field label={t.prepBy}><textarea rows={2} className="input" value={form.preparedBy} onChange={set('preparedBy')} /></Field>
+        <h3 className="text-sm font-bold">{t.coverData || 'بيانات صفحة الغلاف الأكاديمية'}</h3>
+        <Field label={t.prepBy || 'إعداد الطالب / الطلبة'}><textarea rows={2} className="input" value={form.preparedBy} onChange={set('preparedBy')} /></Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={t.supBy}><input className="input" value={form.supervisedBy} onChange={set('supervisedBy')} /></Field>
-          <Field label={t.year}><input className="input" placeholder="2026/2027" value={form.academicYear} onChange={set('academicYear')} /></Field>
-          <Field label={t.uni}><input className="input" value={form.university} onChange={set('university')} /></Field>
-          <Field label={t.fac}><input className="input" value={form.faculty} onChange={set('faculty')} /></Field>
+          <Field label={t.supBy || 'تحت إراف الأستاذ'}><input className="input" value={form.supervisedBy} onChange={set('supervisedBy')} /></Field>
+          <Field label={t.year || 'السنة الجامعية'}><input className="input" placeholder="2026/2027" value={form.academicYear} onChange={set('academicYear')} /></Field>
+          <Field label={t.uni || 'الجامعة'}><input className="input" value={form.university} onChange={set('university')} /></Field>
+          <Field label={t.fac || 'الكلية / القسم'}><input className="input" value={form.faculty} onChange={set('faculty')} /></Field>
         </div>
       </div>
 
       <button className="btn-primary w-full !py-4 text-base" disabled={phase === 'loading'}>
-        {phase === 'loading' ? t.generating : `✦ ${t.generate}`}
+        {phase === 'loading' ? (t.generating || 'جاري توليد العرض والأبحاث...') : `✦ ${t.generate || 'توليد العرض القانوني'}`}
       </button>
     </form>
   );
