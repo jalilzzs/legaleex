@@ -62,9 +62,9 @@ export async function searchWeb(query, options = {}) {
     finalQuery = `${query} (filetype:pdf OR كتاب OR مرجع OR مطبوعة)`;
   }
 
-  // فلترة الدولة بدقة عالية عبر جوجل
+  // تعديل ذكي لفلترة الجزائر: لا نجبرها بصيغة site الصارمة التي تقتل النتائج، بل نضيف الكلمات المفتاحية والدولة بلطف
   if (options.country === 'dz') {
-    finalQuery += ` site:.dz OR site:asjp.cerist.dz OR site:joradp.dz`;
+    finalQuery = `${finalQuery} الجزائر (site:.dz OR asjp.cerist.dz OR joradp.dz OR university)`;
   } else if (options.country === 'fr') {
     finalQuery += ` site:.fr`;
   }
