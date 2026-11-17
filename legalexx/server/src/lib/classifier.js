@@ -110,8 +110,8 @@ function heuristic(host) {
   const h = '.' + host;
   if (/\.gov(\.[a-z]{2,3})?$/.test(h) || /\.gouv\.[a-z]{2,3}$/.test(h) || /\.gob\.[a-z]{2,3}$/.test(h) || /\.go\.[a-z]{2}$/.test(h))
     return { type: 'government', reason: 'Government domain (.gov / .gouv)' };
-  if (/\.edu(\.[a-z]{2,3})?$/.test(h) || /\.ac\.[a-z]{2,3}$/.test(h) || /(^|\.)univ-[a-z0-9-]+\.dz$/.test(host))
-    return { type: 'academic', reason: 'University / academic domain' };
+  if (/\.edu(\.[a-z]{2,3})?$/.test(h) || /\.ac\.[a-z]{2,3}$/.test(h) || /(^|\.)univ-[a-z0-9-]+\.dz$/.test(host) || /\.dz$/.test(host))
+    return { type: 'academic', reason: 'University / Algerian academic or national domain (.dz)' };
   if (/\.int$/.test(h)) return { type: 'international_org', reason: 'Intergovernmental (.int) domain' };
   return null;
 }
