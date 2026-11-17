@@ -1,77 +1,3 @@
-import { Router } from 'express';
-import { searchWeb } from '../lib/search.js';
-import { generateExpose, hasAiKey } from '../lib/ai.js';
-import { renderExposePdf } from '../lib/pdf.js';
-import { buildCoverHtml, buildBodyHtml } from '../lib/template.js';
-import { classify, isHttpUrl } from '../lib/classifier.js';
-
-const router = Router();
-const CATEGORIES = ['political', 'economic', 'historical', 'constitutional', 'comparative', 'mixed'];
-const LANGS = ['ar', 'fr', 'en'];
-const str = (v, max) => String(v ?? '').trim().slice(0, max);
-const clamp = (n, lo, hi, d) => (Number.isFinite(+n) ? Math.min(hi, Math.max(lo, Math.round(+n))) : d);
-
-router.get('/health', (_req, res) => res.json({ 
-  ok: true, 
-  ai: hasAiKey(), 
-  search: Boolean(process.env.LANGSEARCH_API_KEY || process.env.SERPER_API_KEY || process.env.BRAVE_API_KEY) 
-}));
-
-// ---- Open-web search with smart classification ----
-router.get('/search', async (req, res) => {
-  const q = str(req.query.q, 200);
-  if (q.length < 2) return res.status(400).json({ error: 'Query too short.' });
-  try {
-    res.json(await searchWeb(q));
-  } catch (e) {
-    console.error(e);
-    res.status(502).json({ error: 'Search failed.' });
-  }
-});
-
-// ---- Exposé generation ----
-router.post('/expose', async (req, res) => {
-  const b = req.body || {};
-  const description = str(b.description, 4000);
-  if (description.length < 10) return res.status(400).json({ error: 'Please describe the exposé (min 10 characters).' });
-
-  const category = CATEGORIES.includes(b.category) ? b.category : 'mixed';
-  const language = LANGS.includes(b.language) ? b.language : 'ar';
-  const pages = clamp(b.pages, 2, 30, 6);
-  const sectionCount = clamp(b.sectionCount, 1, 8, 3);
-  const subheadings = (Array.isArray(b.subheadings) ? b.subheadings : []).map((s) => str(s, 150)).filter(Boolean).slice(0, 10);
-
-  try {
-    // Pinned sources are re-classified server-side (client data is never trusted)
-    const pinned = (Array.isArray(b.pinnedSources) ? b.pinnedSources : [])
-      .filter((s) => s && isHttpUrl(s.url))
-      .slice(0, 10)
-      .map((s) => ({ title: str(s.title, 300), snippet: str(s.snippet, 500), url: s.url, ...classify(s.url) }));
-
-    const found = await searchWeb(description.slice(0, 200));
-    const seen = new Set(pinned.map((p) => p.url));
-    // The AI only gets high/medium/unknown-trust results; community content is excluded
-    const fresh = found.results.filter((r) => r.trust !== 'low' && !seen.has(r.url));
-    const merged = [...pinned, ...fresh].slice(0, 14).map((s, i) => ({ ...s, n: i + 1 }));
-
-    const expose = await generateExpose({ category, description, sectionCount, pages, subheadings, language, sources: merged });
-
-    const text = JSON.stringify(expose);
-    const cited = new Set([...text.matchAll(/\[(\d{1,3})\]/g)].map((m) => +m[1]));
-    res.json({
-      expose,
-      sources: merged,
-      citedNumbers: [...cited],
-      demoSearch: found.mock,
-      demoAi: !hasAiKey(),
-      providerError: found.providerError,
-    });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'Generation failed. Please try again.' });
-  }
-});
-
 // ---- PDF export ----
 router.post('/pdf', async (req, res) => {
   const b = req.body || {};
@@ -98,13 +24,17 @@ router.post('/pdf', async (req, res) => {
     .filter((s) => s && isHttpUrl(s.url))
     .slice(0, 60)
     .map((s) => {
-      const c = classify(s.url);
+      const c = classify(s.url) || { 
+        sourceName: s.url, 
+        sourceNameAr: s.url, 
+        sourceTypeLabel: { ar: 'موقع إلكتروني', en: 'Website' } 
+      };
       return {
         n: clamp(s.n, 1, 999, 1),
         title: str(s.title, 300) || s.url,
         url: s.url,
-        sourceName: language === 'ar' ? c.sourceNameAr : c.sourceName,
-        typeLabel: c.sourceTypeLabel[language === 'ar' ? 'ar' : 'en'],
+        sourceName: language === 'ar' ? (c.sourceNameAr || s.url) : (c.sourceName || s.url),
+        typeLabel: (c.sourceTypeLabel && c.sourceTypeLabel[language === 'ar' ? 'ar' : 'en']) || (language === 'ar' ? 'موقع إلكتروني' : 'Website'),
       };
     });
 
@@ -123,5 +53,3 @@ router.post('/pdf', async (req, res) => {
     res.status(500).json({ error: 'PDF generation failed.' });
   }
 });
-
-export default router;
