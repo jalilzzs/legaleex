@@ -1,12 +1,23 @@
 import puppeteer from 'puppeteer';
 import { PDFDocument } from 'pdf-lib';
 
-let browserPromise;
+let browserPromise = null;
+
 function getBrowser() {
-  browserPromise ??= puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
+  if (!browserPromise) {
+    browserPromise = puppeteer.launch({
+      headless: true,
+      args: [
+        '--no-sandbox', 
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu'
+      ],
+    }).catch(err => {
+      browserPromise = null;
+      throw err;
+    });
+  }
   return browserPromise;
 }
 
@@ -51,5 +62,11 @@ export async function renderExposePdf({ coverHtml, bodyHtml }) {
 }
 
 export async function closeBrowser() {
-  if (browserPromise) (await browserPromise).close();
+  if (browserPromise) {
+    try {
+      const b = await browserPromise;
+      await b.close();
+    } catch {}
+    browserPromise = null;
+  }
 }
