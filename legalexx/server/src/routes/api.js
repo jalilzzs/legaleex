@@ -1,19 +1,18 @@
 import express from 'express';
 import { renderExposePdf } from '../lib/pdf.js';
-// (استبدل أو أضف هنا باقي الـ imports الخاصة بـ classify, str, isHttpUrl, buildCoverHtml, buildBodyHtml إذا كانت كائناتها في ملفات أخرى)
 
 const router = express.Router();
 
 const LANGS = ['ar', 'fr', 'en'];
 const CATEGORIES = ['mixed', 'legal', 'historical', 'scientific', 'economic'];
 
-// Helper functions if needed locally or imported
+// Helper functions
 const str = (val, maxLen) => (typeof val === 'string' ? val.slice(0, maxLen) : '');
 const isHttpUrl = (url) => typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://'));
 const clamp = (val, min, max, def) => (typeof val === 'number' && !isNaN(val) ? Math.max(min, Math.min(max, val)) : def);
 
-// ---- PDF export ----
-router.post('/pdf', async (req, res) => {
+// ---- Expose PDF export (مطابق لطلب الفرونت إند /api/expose) ----
+router.post('/expose', async (req, res) => {
   const b = req.body || {};
   const e = b.expose;
   if (!e || typeof e.title !== 'string' || !Array.isArray(e.sections)) return res.status(400).json({ error: 'Invalid exposé payload.' });
@@ -68,5 +67,4 @@ router.post('/pdf', async (req, res) => {
   }
 });
 
-// هذا هو السطر الحاسم والمفقود الذي كان يسبب الانهيار بأكمله!
 export default router;
