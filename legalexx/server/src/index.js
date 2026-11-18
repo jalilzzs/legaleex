@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import api from './routes/api.js';
 import { closeBrowser } from './lib/pdf.js';
+import { logSystemInfo } from './lib/system.js';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -29,7 +30,13 @@ if (fs.existsSync(dist)) {
   app.get('*', (_req, res) => res.sendFile(path.join(dist, 'index.html')));
 }
 
-const server = app.listen(PORT, () => console.log(`LegalExx API listening on port ${PORT}`));
+// A stray rejected promise must not take the whole server down.
+process.on('unhandledRejection', (err) => console.error('[unhandledRejection]', err));
+
+const server = app.listen(PORT, () => {
+  console.log(`LegalExx API listening on port ${PORT}`);
+  logSystemInfo('startup'); // prints the active AI model and search engine
+});
 for (const sig of ['SIGINT', 'SIGTERM']) {
   process.on(sig, async () => {
     await closeBrowser().catch(() => {});
