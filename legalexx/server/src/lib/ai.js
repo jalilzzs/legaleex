@@ -69,10 +69,12 @@ async function pickAvailableModel(exclude) {
 }
 
 /** One attempt on one model. Returns { text, finishReason } or { next: AiError } or throws a fatal AiError. */
-async function tryModel(model, payload) {
+async function tryModel(model, payload, deadline) {
   for (let attempt = 0; attempt < 2; attempt++) {
+    const left = deadline - Date.now();
+    if (left < 4000) return { next: new AiError('Gemini took too long to answer.', 504), timedOut: true };
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 150_000);
+    const timer = setTimeout(() => ctrl.abort(), left);
     let res;
     try {
       res = await fetch(`${GEMINI}/models/${model}:generateContent`, {
@@ -87,7 +89,7 @@ async function tryModel(model, payload) {
         await sleep(1000);
         continue;
       }
-      return { next: new AiError(e.name === 'AbortError' ? 'Gemini took too long to answer.' : `Could not reach Gemini: ${e.message}`, 504) };
+      return { next: new AiError(e.name === 'AbortError' ? 'Gemini took too long to answer.' : `Could not reach Gemini: ${e.message}`, 504), timedOut: e.name === 'AbortError' };
     }
     clearTimeout(timer);
 
@@ -104,6 +106,10 @@ async function tryModel(model, payload) {
 
     const body = (await res.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 300);
     console.error(`[gemini] ${model} -> HTTP ${res.status}: ${body}`);
+    if (res.status === 400 && /thinking/i.test(body) && payload.generationConfig.thinkingConfig) {
+      delete payload.generationConfig.thinkingConfig; // this model family does not accept it: retry plain
+      continue;
+    }
     if (res.status === 401 || res.status === 403 || (res.status === 400 && /api key/i.test(body))) {
       throw new AiError('Gemini rejected the API key. Check GEMINI_API_KEY in your hosting variables.');
     }
@@ -119,12 +125,13 @@ async function tryModel(model, payload) {
   return { next: new AiError('Gemini did not answer.') };
 }
 
-export async function callGemini({ system, user, json = true, maxOutputTokens = 8192, temperature = 0.4 }) {
+export async function callGemini({ system, user, json = true, maxOutputTokens = 8192, temperature = 0.4, timeoutMs = 90_000 }) {
+  const deadline = Date.now() + timeoutMs;
   if (!hasAiKey()) throw new AiError('GEMINI_API_KEY is not set.', 500);
   const payload = {
     systemInstruction: { parts: [{ text: system }] },
     contents: [{ role: 'user', parts: [{ text: user }] }],
-    generationConfig: { temperature, maxOutputTokens, ...(json ? { responseMimeType: 'application/json' } : {}) },
+    generationConfig: { temperature, maxOutputTokens, thinkingConfig: { thinkingBudget: 0 }, ...(json ? { responseMimeType: 'application/json' } : {}) },
   };
 
   const chain = lastGoodModel ? [lastGoodModel, ...modelChain().filter((m) => m !== lastGoodModel)] : modelChain();
@@ -134,13 +141,14 @@ export async function callGemini({ system, user, json = true, maxOutputTokens = 
 
   for (const model of chain) {
     tried.push(model);
-    const r = await tryModel(model, payload);
+    const r = await tryModel(model, payload, deadline);
     if (r.text) {
       lastGoodModel = model;
       return { text: r.text, model, finishReason: r.finishReason };
     }
     lastErr = r.next;
     if (!r.missing) allMissing = false;
+    if (r.timedOut || Date.now() > deadline - 4000) throw lastErr; // out of time: answer with a clear error instead of hanging
   }
 
   // Every candidate name was rejected as unknown: ask Google which flash model this key can really use.
@@ -148,7 +156,7 @@ export async function callGemini({ system, user, json = true, maxOutputTokens = 
     const picked = await pickAvailableModel(tried);
     if (picked) {
       console.warn(`[gemini] none of [${tried.join(', ')}] exist for this key; trying "${picked}" found via ListModels`);
-      const r = await tryModel(picked, payload);
+      const r = await tryModel(picked, payload, deadline);
       if (r.text) {
         autoPicked = picked;
         lastGoodModel = picked;
@@ -393,8 +401,9 @@ export async function planQueries({ request, category, language }) {
 Return ONLY JSON: {"queries": ["...", "...", "..."]}
 Rules: 2 to 3 queries, each 3-10 words, no quotes/operators unless essential. Use the legal terminology a source would actually contain. Make the first query in the request's own language, and add one in the other main legal language (Arabic or French) when the topic concerns Algerian law. Include law numbers / years only if the student mentioned them.`,
       user: `Field: ${category}\nUI language: ${language}\nRequest:\n${String(request).slice(0, 1500)}`,
-      maxOutputTokens: 4096,
+      maxOutputTokens: 1024,
       temperature: 0.2,
+      timeoutMs: 15_000,
     });
     const parsed = parseJson(text);
     const qs = arr(parsed?.queries).map((q) => String(q).replace(/\s+/g, ' ').trim().slice(0, 160)).filter((q) => q.length >= 3);
@@ -457,12 +466,12 @@ Requested subheadings: ${subheadings.length ? subheadings.join(' | ') : 'none â€
 SOURCES:
 ${sourceBlock(sources)}`;
 
-  const budget = Math.min(60000, 6000 + words * 4);
+  const budget = Math.min(30000, 4000 + words * 3);
   let obj = null;
   let truncated = false;
   let model;
   for (let attempt = 0; attempt < 2 && !obj; attempt++) {
-    const r = await callGemini({ system, user: attempt ? `${user}\n\nIMPORTANT: your previous answer was not valid JSON. Return ONLY the JSON object.` : user, maxOutputTokens: budget, temperature: attempt ? 0.2 : 0.4 });
+    const r = await callGemini({ system, user: attempt ? `${user}\n\nIMPORTANT: your previous answer was not valid JSON. Return ONLY the JSON object.` : user, maxOutputTokens: budget, temperature: attempt ? 0.2 : 0.4, timeoutMs: attempt ? 45_000 : 100_000 });
     model = r.model;
     truncated = r.finishReason === 'MAX_TOKENS';
     const parsed = parseJson(r.text);
@@ -520,7 +529,7 @@ Return ONLY valid JSON of this shape:
   let truncated = false;
   let model;
   for (let attempt = 0; attempt < 2 && !obj; attempt++) {
-    const r = await callGemini({ system, user: attempt ? `${user}\n\nIMPORTANT: your previous answer was not valid JSON. Return ONLY the JSON object.` : user, maxOutputTokens: 16000, temperature: attempt ? 0.2 : 0.3 });
+    const r = await callGemini({ system, user: attempt ? `${user}\n\nIMPORTANT: your previous answer was not valid JSON. Return ONLY the JSON object.` : user, maxOutputTokens: 8000, temperature: attempt ? 0.2 : 0.3, timeoutMs: attempt ? 40_000 : 70_000 });
     model = r.model;
     truncated = r.finishReason === 'MAX_TOKENS';
     const parsed = parseJson(r.text);
