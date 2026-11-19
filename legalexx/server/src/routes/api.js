@@ -54,12 +54,12 @@ const buildMeta = (g, model, totalMs) => ({
 
 const logPipeline = (tag, m) =>
   console.log(
-    `[${tag}] model=${m.ai.usedModel} | search=${m.search.id} | queries=${m.queries.length} | found=${m.counts.found} used=${m.counts.used} pinned=${m.counts.pinned} | pages read=${m.pages.ok}/${m.pages.attempted} | ${(m.tookMs / 1000).toFixed(1)}s`
+    `[${tag}] model=${m.ai.usedModel} | search=${m.search.id} | queries=${m.queries.length} | found=${m.counts.found} used=${m.counts.used} pinned=${m.counts.pinned} | pages read=${m.pages.ok}/${m.pages.attempted} | ${(m.tookMs / 1000).toFixed(1)}s | rss=${Math.round(process.memoryUsage().rss / 1048576)}MB`
   );
 
 function fail(res, tag, e) {
   console.error(`[${tag}]`, e);
-  if (e?.expose) return res.status(e.status === 504 ? 504 : 502).json({ error: e.message });
+  if (e?.expose) return res.status(e.status === 504 ? 504 : 503).json({ error: e.message }) // 503/504 = our app answered; a bare 502 page = Railway's proxy;
   res.status(500).json({ error: 'Something went wrong on the server. Please try again.' });
 }
 
